@@ -10,11 +10,15 @@ components:
   - file_cache
   - attr_cache
 
+libfuse:
+  attribute-expiration-sec: 120
+  entry-expiration-sec: 120
+  negative-entry-expiration-sec: 240
+
 azure_storage:
-  type: adls
-  container: ${CONTAINER_NAME}
-  account_name: ${ACCOUNT_NAME}
-  account_key: ${ACCOUNT_KEY}
+  account-name: ${ACCOUNT_NAME}
+  account-key: ${ACCOUNT_KEY}
+  container-name: ${CONTAINER_NAME}
 
 file_cache:
   path: /tmp/blobfuse2_cache
@@ -23,8 +27,3 @@ file_cache:
 
 attr_cache:
   timeout-sec: 120
-
-libfuse:
-  attribute-expiration-sec: 120
-  entry-expiration-sec: 120
-  negative-entry-expiration-sec: 240
