@@ -102,12 +102,21 @@ code tunnel --accept-server-license-terms \
 
 TUNNEL_PID=$!
 
+# Give it a moment to start
+sleep 2
+
 if ps -p $TUNNEL_PID > /dev/null; then
     echo "✓ VS Code Tunnel started (PID: $TUNNEL_PID)"
     echo "✓ Connect via: https://vscode.dev/tunnel/$TUNNEL_ID"
 else
-    echo "❌ ERROR: Failed to start VS Code Tunnel"
+    echo "❌ ERROR: VS Code Tunnel failed to start"
+    echo "Check the log for details:"
     cat /tmp/vscode_tunnel.log
+    echo ""
+    echo "Common issues:"
+    echo "  - Invalid ACCESS_TOKEN"
+    echo "  - TUNNEL_ID already in use"
+    echo "  - Network connectivity problems"
     exit 1
 fi
 
