@@ -33,9 +33,7 @@ RUN wget https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-p
     rm packages-microsoft-prod.deb && \
     apt-get update && \
     apt-get install -y blobfuse2 && \
-    rm -rf /var/lib/apt/lists/* && \
-    echo "DEBUG: BlobFuse2 version:" && blobfuse2 --version && \
-    echo "DEBUG: BlobFuse2 location:" && which blobfuse2
+    rm -rf /var/lib/apt/lists/*
 
 # Install VS Code CLI
 RUN curl -Lk 'https://code.visualstudio.com/sha/download?build=stable&os=cli-alpine-x64' --output vscode_cli.tar.gz && \
@@ -59,9 +57,7 @@ RUN mkdir -p /mnt/workspace \
 COPY blobfuse2_config.yaml /etc/blobfuse2/config.yaml
 COPY start.sh /start.sh
 COPY healthcheck.sh /healthcheck.sh
-RUN chmod +x /start.sh /healthcheck.sh && \
-    echo "DEBUG: Config file contents:" && cat /etc/blobfuse2/config.yaml && \
-    echo "DEBUG: Config file location check:" && ls -la /etc/blobfuse2/
+RUN chmod +x /start.sh /healthcheck.sh
 
 # Set working directory
 WORKDIR /mnt/workspace
