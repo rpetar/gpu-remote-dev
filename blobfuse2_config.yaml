@@ -6,9 +6,9 @@ logging:
 
 components:
   - libfuse
-  - azstorage
   - file_cache
   - attr_cache
+  - azstorage
 
 
 azstorage:
