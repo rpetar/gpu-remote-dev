@@ -54,7 +54,17 @@ echo "💾 Mounting Azure Blob Storage..."
 
 # Generate config file with actual values (BlobFuse2 doesn't expand env vars in YAML)
 echo "DEBUG: Generating runtime config file with actual values..."
-envsubst < /etc/blobfuse2/config.yaml > /tmp/blobfuse2_runtime.yaml
+sed -e "s|\${ACCOUNT_NAME}|${ACCOUNT_NAME}|g" \
+    -e "s|\${ACCOUNT_KEY}|${ACCOUNT_KEY}|g" \
+    -e "s|\${CONTAINER_NAME}|${CONTAINER_NAME}|g" \
+    /etc/blobfuse2/config.yaml > /tmp/blobfuse2_runtime.yaml
+
+# DEBUG: Check environment variables
+echo "DEBUG: Environment variables check:"
+echo "  ACCOUNT_NAME=${ACCOUNT_NAME:-NOT SET}"
+echo "  ACCOUNT_KEY=${ACCOUNT_KEY:0:10}... (truncated)"
+echo "  CONTAINER_NAME=${CONTAINER_NAME:-NOT SET}"
+echo ""
 
 # DEBUG: Run blobfuse2 with verbose output
 echo "DEBUG: Attempting BlobFuse2 mount with verbose output..."
