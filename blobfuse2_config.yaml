@@ -1,0 +1,31 @@
+version: 2
+
+logging:
+  type: syslog
+  level: log_warning
+
+components:
+  - libfuse
+  - azure_storage
+  - file_cache
+  - attr_cache
+
+options:
+  container: ${CONTAINER_NAME}
+  account_name: ${ACCOUNT_NAME}
+  account_key: ${ACCOUNT_KEY}
+  mode: "0777"
+  nonempty: true
+
+  file_cache:
+    path: /tmp/blobfuse2_cache
+    timeout-sec: 120
+    max-size-mb: 4096
+
+  attr_cache:
+    timeout-sec: 120
+
+libfuse:
+  attribute-expiration-sec: 120
+  entry-expiration-sec: 120
+  negative-entry-expiration-sec: 240
