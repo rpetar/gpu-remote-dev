@@ -52,32 +52,37 @@ mkdir -p /tmp/cuda_cache
 echo ""
 echo "💾 Mounting Azure Blob Storage..."
 
-# Generate config file with actual values (BlobFuse2 doesn't expand env vars in YAML)
-echo "DEBUG: Generating runtime config file with actual values..."
-sed -e "s|\${ACCOUNT_NAME}|${ACCOUNT_NAME}|g" \
-    -e "s|\${ACCOUNT_KEY}|${ACCOUNT_KEY}|g" \
-    -e "s|\${CONTAINER_NAME}|${CONTAINER_NAME}|g" \
-    /etc/blobfuse2/config.yaml > /tmp/blobfuse2_runtime.yaml
-
-# DEBUG: Check environment variables
-echo "DEBUG: Environment variables check:"
-echo "  ACCOUNT_NAME=${ACCOUNT_NAME:-NOT SET}"
-echo "  ACCOUNT_KEY=${ACCOUNT_KEY:0:10}... (truncated)"
-echo "  CONTAINER_NAME=${CONTAINER_NAME:-NOT SET}"
-echo ""
-
-# DEBUG: Run blobfuse2 with verbose output
-echo "DEBUG: Attempting BlobFuse2 mount with verbose output..."
-blobfuse2 mount /mnt/workspace --config-file=/tmp/blobfuse2_runtime.yaml -o allow_other 2>&1 | tee /tmp/blobfuse2_debug.log
-BLOBFUSE_EXIT_CODE=${PIPESTATUS[0]}
-
-if [ $BLOBFUSE_EXIT_CODE -eq 0 ]; then
-    echo "✓ Azure Blob Storage mounted successfully"
+# Check if FUSE is available
+if [ ! -e /dev/fuse ]; then
+    echo "⚠ Warning: FUSE device not available - BlobFuse2 mounting not supported"
+    echo "   This is expected on restricted container platforms like Salad"
+    echo "   Use Azure SDK in your code to access blob storage instead"
+    echo "   Credentials available via environment variables:"
+    echo "     ACCOUNT_NAME=$ACCOUNT_NAME"
+    echo "     ACCOUNT_KEY=<set>"
+    echo "     CONTAINER_NAME=$CONTAINER_NAME"
+    mkdir -p /mnt/workspace
+    MOUNT_AVAILABLE=false
 else
-    echo "⚠ Warning: Failed to mount Azure Blob Storage (exit code: $BLOBFUSE_EXIT_CODE), but continuing..."
-    echo "DEBUG: Full BlobFuse2 output saved to /tmp/blobfuse2_debug.log"
-    echo "DEBUG: Last 20 lines of debug log:"
-    tail -n 20 /tmp/blobfuse2_debug.log || true
+    # Generate config file with actual values (BlobFuse2 doesn't expand env vars in YAML)
+    echo "DEBUG: Generating runtime config file with actual values..."
+    sed -e "s|\${ACCOUNT_NAME}|${ACCOUNT_NAME}|g" \
+        -e "s|\${ACCOUNT_KEY}|${ACCOUNT_KEY}|g" \
+        -e "s|\${CONTAINER_NAME}|${CONTAINER_NAME}|g" \
+        /etc/blobfuse2/config.yaml > /tmp/blobfuse2_runtime.yaml
+
+    # Attempt BlobFuse2 mount
+    blobfuse2 mount /mnt/workspace --config-file=/tmp/blobfuse2_runtime.yaml -o allow_other 2>&1 | tee /tmp/blobfuse2_debug.log
+    BLOBFUSE_EXIT_CODE=${PIPESTATUS[0]}
+
+    if [ $BLOBFUSE_EXIT_CODE -eq 0 ]; then
+        echo "✓ Azure Blob Storage mounted successfully"
+        MOUNT_AVAILABLE=true
+    else
+        echo "⚠ Warning: Failed to mount Azure Blob Storage (exit code: $BLOBFUSE_EXIT_CODE)"
+        echo "   Use Azure SDK in your code to access blob storage instead"
+        MOUNT_AVAILABLE=false
+    fi
 fi
 
 # Verify mount
