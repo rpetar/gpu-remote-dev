@@ -146,5 +146,14 @@ echo "================================================="
 # Keep container alive and handle signals gracefully
 trap "echo 'Shutting down...'; kill $TUNNEL_PID 2>/dev/null; [ ! -z \$MONITOR_PID ] && kill \$MONITOR_PID 2>/dev/null; exit 0" EXIT TERM INT
 
-# Wait for tunnel process
-wait $TUNNEL_PID
+# Monitor tunnel process and show logs if it dies
+while true; do
+    if ! ps -p $TUNNEL_PID > /dev/null; then
+        echo ""
+        echo "❌ VS Code Tunnel process died!"
+        echo "Last 50 lines of tunnel log:"
+        tail -n 50 /tmp/vscode_tunnel.log
+        exit 1
+    fi
+    sleep 5
+done
