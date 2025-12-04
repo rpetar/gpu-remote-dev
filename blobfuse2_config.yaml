@@ -6,24 +6,18 @@ logging:
 
 components:
   - libfuse
-  - azure_storage
+  - azstorage
   - file_cache
   - attr_cache
 
-libfuse:
-  attribute-expiration-sec: 120
-  entry-expiration-sec: 120
-  negative-entry-expiration-sec: 240
 
-azure_storage:
+azstorage:
+  type: block
   account-name: ${ACCOUNT_NAME}
   account-key: ${ACCOUNT_KEY}
-  container-name: ${CONTAINER_NAME}
+  container: ${CONTAINER_NAME}
 
 file_cache:
   path: /tmp/blobfuse2_cache
   timeout-sec: 120
   max-size-mb: 4096
-
-attr_cache:
-  timeout-sec: 120
