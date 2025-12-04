@@ -31,7 +31,7 @@ if command -v nvidia-smi &> /dev/null; then
     echo "GPU Details:"
     nvidia-smi -L
 
-    # Set GPU performance mode if available
+    # Set GPU performance mode if available 
     nvidia-smi -pm 1 2>/dev/null || echo "⚠ Could not set persistence mode (may require root)"
 
     # Export GPU info for later use
@@ -51,10 +51,35 @@ mkdir -p /tmp/cuda_cache
 
 echo ""
 echo "💾 Mounting Azure Blob Storage..."
-if blobfuse2 mount /mnt/workspace --config-file=/etc/blobfuse2/config.yaml; then
+
+# DEBUG: Check if config file exists and show its contents
+echo "DEBUG: Checking config file..."
+if [ -f /etc/blobfuse2/config.yaml ]; then
+    echo "DEBUG: Config file found at /etc/blobfuse2/config.yaml"
+    echo "DEBUG: Config file contents:"
+    cat /etc/blobfuse2/config.yaml
+    echo ""
+else
+    echo "❌ DEBUG ERROR: Config file NOT found at /etc/blobfuse2/config.yaml"
+    ls -la /etc/blobfuse2/ || echo "DEBUG: /etc/blobfuse2/ directory doesn't exist"
+fi
+
+# DEBUG: Check environment variables
+echo "DEBUG: Environment variables check:"
+echo "  ACCOUNT_NAME=${ACCOUNT_NAME:-NOT SET}"
+echo "  ACCOUNT_KEY=${ACCOUNT_KEY:0:10}... (truncated)"
+echo "  CONTAINER_NAME=${CONTAINER_NAME:-NOT SET}"
+echo ""
+
+# DEBUG: Run blobfuse2 with verbose output
+echo "DEBUG: Attempting BlobFuse2 mount with verbose output..."
+if blobfuse2 mount /mnt/workspace --config-file=/etc/blobfuse2/config.yaml -o allow_other 2>&1 | tee /tmp/blobfuse2_debug.log; then
     echo "✓ Azure Blob Storage mounted successfully"
 else
     echo "⚠ Warning: Failed to mount Azure Blob Storage, but continuing..."
+    echo "DEBUG: Full BlobFuse2 output saved to /tmp/blobfuse2_debug.log"
+    echo "DEBUG: Last 20 lines of debug log:"
+    tail -n 20 /tmp/blobfuse2_debug.log || true
 fi
 
 # Verify mount
