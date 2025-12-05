@@ -1,159 +1,196 @@
 #!/bin/bash
 set -e
 
-echo "================================================="
-echo "GPU Development Container Initialization"
-echo "================================================="
+banner() {
+    echo "================================================="
+    echo "$1"
+    echo "================================================="
+}
 
-# Set default for CONTAINER_NAME if not provided
-if [ -z "$CONTAINER_NAME" ]; then
-    export CONTAINER_NAME="workspace"
-fi
-
-# Validate required environment variables
-if [ -z "$ACCOUNT_NAME" ] || [ -z "$ACCOUNT_KEY" ]; then
-    echo "❌ ERROR: ACCOUNT_NAME and ACCOUNT_KEY must be set"
+error() {
+    echo "❌ ERROR: $1"
     exit 1
-fi
+}
 
-if [ -z "$TUNNEL_ID" ] || [ -z "$ACCESS_TOKEN" ]; then
-    echo "❌ ERROR: TUNNEL_ID and ACCESS_TOKEN must be set"
-    exit 1
-fi
+warn() {
+    echo "⚠ $1"
+}
 
-# GPU Detection and Information
+info() {
+    echo "✓ $1"
+}
+
+banner "GPU Development Container Initialization"
+
+# ------------------------------------------------------------
+# Required environment variables
+# ------------------------------------------------------------
+CONTAINER_NAME="${CONTAINER_NAME:-workspace}"
+
+[ -z "$ACCOUNT_NAME" ]   && error "ACCOUNT_NAME must be set"
+[ -z "$ACCOUNT_KEY" ]    && error "ACCOUNT_KEY must be set"
+[ -z "$TUNNEL_ID" ]      && error "TUNNEL_ID must be set"
+[ -z "$ACCESS_TOKEN" ]   && error "ACCESS_TOKEN must be set"
+
+# ------------------------------------------------------------
+# GPU Detection
+# ------------------------------------------------------------
 echo ""
 echo "🔍 Detecting GPU..."
+
 if command -v nvidia-smi &> /dev/null; then
-    echo "✓ NVIDIA drivers detected"
+    info "NVIDIA drivers detected"
     nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader
     echo ""
-    echo "GPU Details:"d
+    echo "GPU Details:"
     nvidia-smi -L
 
-    # Set GPU performance mode if available 
-    nvidia-smi -pm 1 2>/dev/null || echo "⚠ Could not set persistence mode (may require root)"
+    nvidia-smi -pm 1 2>/dev/null || warn "Could not enable persistence mode"
 
-    # Export GPU info for later use
-    export GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader | head -n1)
-    export GPU_MEMORY=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits | head -n1)
-    echo "✓ GPU: $GPU_NAME with ${GPU_MEMORY}MB memory"
+    GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader | head -n1)
+    GPU_MEMORY=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits | head -n1)
+
+    info "GPU: $GPU_NAME with ${GPU_MEMORY}MB memory"
 else
-    echo "⚠ Warning: nvidia-smi not found - GPU may not be available"
-    echo "This container expects GPU access. Please ensure:"
-    echo "  1. Host has NVIDIA GPU and drivers installed"
-    echo "  2. Container runtime is configured for GPU access (--gpus all)"
-    echo "  3. nvidia-docker runtime is properly configured"
+    warn "nvidia-smi not found - GPU may not be available"
+    echo "Make sure:"
+    echo "  1. Host has NVIDIA GPU & drivers"
+    echo "  2. Docker started with --gpus all"
+    echo "  3. NVIDIA Container Toolkit is installed"
 fi
 
-# Create CUDA cache directory
 mkdir -p /tmp/cuda_cache
 
+# ------------------------------------------------------------
+# Mount Azure Blob Storage (BlobFuse2)
+# ------------------------------------------------------------
 echo ""
 echo "💾 Mounting Azure Blob Storage..."
 
-# Check if FUSE is available
 if [ ! -e /dev/fuse ]; then
-    echo "⚠ Warning: FUSE device not available - BlobFuse2 mounting not supported"
-    echo "   This is expected on restricted container platforms like Salad"
-    echo "   Use Azure SDK in your code to access blob storage instead"
-    echo "   Credentials available via environment variables:"
-    echo "     ACCOUNT_NAME=$ACCOUNT_NAME"
-    echo "     ACCOUNT_KEY=<set>"
-    echo "     CONTAINER_NAME=$CONTAINER_NAME"
+    warn "FUSE not available - BlobFuse2 disabled"
+    echo "Using Azure SDK instead (credentials still provided)"
     mkdir -p /mnt/workspace
     MOUNT_AVAILABLE=false
 else
-    # Generate config file with actual values (BlobFuse2 doesn't expand env vars in YAML)
-    echo "DEBUG: Generating runtime config file with actual values..."
-    sed -e "s|\${ACCOUNT_NAME}|${ACCOUNT_NAME}|g" \
+    echo "Generating BlobFuse2 config..."
+    sed \
+        -e "s|\${ACCOUNT_NAME}|${ACCOUNT_NAME}|g" \
         -e "s|\${ACCOUNT_KEY}|${ACCOUNT_KEY}|g" \
         -e "s|\${CONTAINER_NAME}|${CONTAINER_NAME}|g" \
-        /etc/blobfuse2/config.yaml > /tmp/blobfuse2_runtime.yaml
+        /etc/blobfuse2/config.yaml \
+        > /tmp/blobfuse2_runtime.yaml
 
-    # Attempt BlobFuse2 mount
-    blobfuse2 mount /mnt/workspace --config-file=/tmp/blobfuse2_runtime.yaml -o allow_other 2>&1 | tee /tmp/blobfuse2_debug.log
-    BLOBFUSE_EXIT_CODE=${PIPESTATUS[0]}
-
-    if [ $BLOBFUSE_EXIT_CODE -eq 0 ]; then
-        echo "✓ Azure Blob Storage mounted successfully"
+    echo "Mounting BlobFuse2..."
+    if blobfuse2 mount /mnt/workspace \
+        --config-file=/tmp/blobfuse2_runtime.yaml -o allow_other \
+        2>&1 | tee /tmp/blobfuse2_debug.log; then
+        
+        info "Blob Storage mounted"
         MOUNT_AVAILABLE=true
     else
-        echo "⚠ Warning: Failed to mount Azure Blob Storage (exit code: $BLOBFUSE_EXIT_CODE)"
-        echo "   Use Azure SDK in your code to access blob storage instead"
+        warn "BlobFuse2 mount failed"
         MOUNT_AVAILABLE=false
     fi
 fi
 
-# Verify mount
 if mountpoint -q /mnt/workspace; then
-    echo "✓ Mount point verified: /mnt/workspace"
+    info "Mount point OK: /mnt/workspace"
     ls -la /mnt/workspace | head -n 10
 else
-    echo "⚠ Warning: /mnt/workspace is not a mount point"
+    warn "/mnt/workspace is not a mount point"
 fi
 
+# ------------------------------------------------------------
+# Start Dev Tunnel
+# ------------------------------------------------------------
 echo ""
-echo "🔗 Starting VS Code Tunnel..."
-code tunnel --accept-server-license-terms \
-    --name "$TUNNEL_ID" \
-    --access-token "$ACCESS_TOKEN" \
-    > /tmp/vscode_tunnel.log 2>&1 &
+echo "🔗 Starting Dev Tunnel..."
 
+if ! devtunnel user login --access-token "$ACCESS_TOKEN" &>/dev/null; then
+    warn "DevTunnel authentication may have failed"
+fi
+
+if devtunnel show "$TUNNEL_ID" &>/dev/null; then
+    info "Using existing tunnel: $TUNNEL_ID"
+else
+    echo "Creating new tunnel: $TUNNEL_ID"
+    devtunnel create --name "$TUNNEL_ID" | tee /tmp/devtunnel_create.log
+fi
+
+# Create VS Code port
+devtunnel port create "$TUNNEL_ID" -p 8000 --protocol https \
+    | tee /tmp/devtunnel_port.log || true
+
+devtunnel host "$TUNNEL_ID" > /tmp/devtunnel.log 2>&1 &
 TUNNEL_PID=$!
 
-# Give it a moment to start
-sleep 2
+sleep 3
 
-if ps -p $TUNNEL_PID > /dev/null; then
-    echo "✓ VS Code Tunnel started (PID: $TUNNEL_PID)"
-    echo "✓ Connect via: https://vscode.dev/tunnel/$TUNNEL_ID"
+if ps -p "$TUNNEL_PID" > /dev/null; then
+    info "Dev Tunnel started (PID: $TUNNEL_PID)"
+    
+    TUNNEL_URL=$(devtunnel show "$TUNNEL_ID" --output json 2>/dev/null \
+        | grep -o '"uri":"[^"]*' | head -1 | cut -d'"' -f4)
+
+    if [ -n "$TUNNEL_URL" ]; then
+        info "Connect via: $TUNNEL_URL"
+    else
+        info "Tunnel ID: $TUNNEL_ID"
+    fi
 else
-    echo "❌ ERROR: VS Code Tunnel failed to start"
-    echo "Check the log for details:"
-    cat /tmp/vscode_tunnel.log
-    echo ""
-    echo "Common issues:"
-    echo "  - Invalid ACCESS_TOKEN"
-    echo "  - TUNNEL_ID already in use"
-    echo "  - Network connectivity problems"
-    exit 1
+    error "DevTunnel failed to start. Log:"
+    cat /tmp/devtunnel.log
 fi
 
-# Start GPU monitoring in background
+# ------------------------------------------------------------
+# GPU Monitoring
+# ------------------------------------------------------------
 if command -v gpustat &> /dev/null; then
     echo ""
     echo "📊 Starting GPU monitoring..."
-    while true; do
-        gpustat --json > /tmp/gpu_stats.json 2>/dev/null || true
-        sleep 10
-    done &
+
+    (
+        while true; do
+            gpustat --json > /tmp/gpu_stats.json 2>/dev/null || true
+            sleep 10
+        done
+    ) &
+
     MONITOR_PID=$!
-    echo "✓ GPU monitoring started (PID: $MONITOR_PID)"
+    info "GPU monitoring started (PID: $MONITOR_PID)"
 fi
 
+# ------------------------------------------------------------
+# Ready banner
+# ------------------------------------------------------------
 echo ""
-echo "================================================="
-echo "✅ Container Ready!"
-echo "================================================="
-echo "GPU: $GPU_NAME"
+banner "Container Ready!"
+
+echo "GPU: ${GPU_NAME:-N/A}"
 echo "Storage: /mnt/workspace"
-echo "VS Code Tunnel: $TUNNEL_ID"
-echo "Logs: /tmp/vscode_tunnel.log"
+echo "Dev Tunnel: $TUNNEL_ID"
+echo "Logs: /tmp/devtunnel.log"
 echo "GPU Stats: /tmp/gpu_stats.json"
-echo "================================================="
 
-# Keep container alive and handle signals gracefully
-trap "echo 'Shutting down...'; kill $TUNNEL_PID 2>/dev/null; [ ! -z \$MONITOR_PID ] && kill \$MONITOR_PID 2>/dev/null; exit 0" EXIT TERM INT
+# ------------------------------------------------------------
+# Graceful shutdown
+# ------------------------------------------------------------
+trap '
+    echo "Shutting down..."
+    kill "$TUNNEL_PID" 2>/dev/null || true
+    [ -n "$MONITOR_PID" ] && kill "$MONITOR_PID" 2>/dev/null || true
+    exit 0
+' EXIT TERM INT
 
-# Monitor tunnel process and show logs if it dies
+# ------------------------------------------------------------
+# Monitor tunnel process
+# ------------------------------------------------------------
 while true; do
-    if ! ps -p $TUNNEL_PID > /dev/null; then
+    if ! ps -p "$TUNNEL_PID" > /dev/null; then
         echo ""
-        echo "❌ VS Code Tunnel process died!"
-        echo "Last 50 lines of tunnel log:"
-        tail -n 50 /tmp/vscode_tunnel.log
-        exit 1
+        error "Dev Tunnel process died! Last 50 log lines:"
+        tail -n 50 /tmp/devtunnel.log
     fi
     sleep 5
 done
