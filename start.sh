@@ -107,59 +107,36 @@ fi
 echo ""
 echo "🔗 Starting Dev Tunnel..."
 
-if ! devtunnel user login --access-token "$ACCESS_TOKEN" &>/dev/null; then
-    warn "DevTunnel authentication may have failed"
-fi
+echo "Using tunnel ID: $TUNNEL_ID"
 
-if devtunnel show "$TUNNEL_ID" &>/dev/null; then
-    info "Using existing tunnel: $TUNNEL_ID"
-else
-    echo "Creating new tunnel: $TUNNEL_ID"
-    devtunnel create --name "$TUNNEL_ID" | tee /tmp/devtunnel_create.log
-fi
-
-# Create VS Code port
-devtunnel port create "$TUNNEL_ID" -p 8000 --protocol https \
+# Ensure port 8000 exists (idempotent)
+devtunnel port create "$TUNNEL_ID" \
+    -p 8000 \
+    --protocol https \
+    --access-token "$ACCESS_TOKEN" \
     | tee /tmp/devtunnel_port.log || true
 
-devtunnel host "$TUNNEL_ID" > /tmp/devtunnel.log 2>&1 &
+# Host tunnel
+devtunnel host "$TUNNEL_ID" \
+    --access-token "$ACCESS_TOKEN" \
+    > /tmp/devtunnel.log 2>&1 &
 TUNNEL_PID=$!
 
+# Wait for startup
 sleep 3
 
-if ps -p "$TUNNEL_PID" > /dev/null; then
-    info "Dev Tunnel started (PID: $TUNNEL_PID)"
-    
-    TUNNEL_URL=$(devtunnel show "$TUNNEL_ID" --output json 2>/dev/null \
-        | grep -o '"uri":"[^"]*' | head -1 | cut -d'"' -f4)
-
-    if [ -n "$TUNNEL_URL" ]; then
-        info "Connect via: $TUNNEL_URL"
-    else
-        info "Tunnel ID: $TUNNEL_ID"
-    fi
-else
-    error "DevTunnel failed to start. Log:"
+if ! ps -p "$TUNNEL_PID" >/dev/null; then
+    error "DevTunnel failed to start! Log:"
     cat /tmp/devtunnel.log
 fi
 
-# ------------------------------------------------------------
-# GPU Monitoring
-# ------------------------------------------------------------
-if command -v gpustat &> /dev/null; then
-    echo ""
-    echo "📊 Starting GPU monitoring..."
+info "Dev Tunnel started (PID: $TUNNEL_PID)"
 
-    (
-        while true; do
-            gpustat --json > /tmp/gpu_stats.json 2>/dev/null || true
-            sleep 10
-        done
-    ) &
+# Optional: try to show full details, but do NOT fail if unauthorized
+TUNNEL_URL=$(devtunnel show "$TUNNEL_ID" --json 2>/dev/null \
+    | grep -o '"uri":"[^"]*' | cut -d'"' -f4 || true)
 
-    MONITOR_PID=$!
-    info "GPU monitoring started (PID: $MONITOR_PID)"
-fi
+[ -n "$TUNNEL_URL" ] && info "Connect via: $TUNNEL_URL"
 
 # ------------------------------------------------------------
 # Ready banner
