@@ -27,8 +27,6 @@ banner "GPU Development Container Initialization"
 # ------------------------------------------------------------
 CONTAINER_NAME="${CONTAINER_NAME:-workspace}"
 
-[ -z "$ACCOUNT_NAME" ]   && error "ACCOUNT_NAME must be set"
-[ -z "$ACCOUNT_KEY" ]    && error "ACCOUNT_KEY must be set"
 [ -z "$TUNNEL_ID" ]      && error "TUNNEL_ID must be set"
 [ -z "$ACCESS_TOKEN" ]   && error "ACCESS_TOKEN must be set"
 
@@ -73,6 +71,9 @@ if [ ! -e /dev/fuse ]; then
     mkdir -p /mnt/workspace
     MOUNT_AVAILABLE=false
 else
+    [ -z "$ACCOUNT_NAME" ] && error "ACCOUNT_NAME must be set when FUSE is available"
+    [ -z "$ACCOUNT_KEY" ]  && error "ACCOUNT_KEY must be set when FUSE is available"
+
     echo "Generating BlobFuse2 config..."
     sed \
         -e "s|\${ACCOUNT_NAME}|${ACCOUNT_NAME}|g" \
