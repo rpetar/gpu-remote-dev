@@ -32,8 +32,11 @@ fi
 [ -z "$GITHUB_REPO_URL" ] && error "GITHUB_REPO_URL must be set (e.g., https://github.com/user/repo.git)"
 [ -z "$GITHUB_TOKEN" ] && error "GITHUB_TOKEN must be set (GitHub Personal Access Token)"
 
+# Extract repo name from URL (e.g., my-awesome-repo from https://github.com/user/my-awesome-repo.git)
+REPO_NAME=$(echo "$GITHUB_REPO_URL" | sed 's|.*/\([^/]*\)\.git$|\1|' | sed 's|.*/\([^/]*\)$|\1|')
+
 # Optional variables
-PROJECT_DIR="${PROJECT_DIR:-/mnt/workspace/project}"
+PROJECT_DIR="${PROJECT_DIR:-/mnt/workspace/${REPO_NAME}}"
 
 banner "GitHub Repository Setup"
 
