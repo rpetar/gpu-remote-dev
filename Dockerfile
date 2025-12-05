@@ -36,8 +36,9 @@ RUN mkdir -p /mnt/workspace /etc/blobfuse2 /tmp/blobfuse2_cache \
 
 COPY blobfuse2_config.yaml /etc/blobfuse2/config.yaml
 COPY start.sh /start.sh
+COPY clone_repo.sh /clone_repo.sh
 COPY healthcheck.sh /healthcheck.sh
-RUN chmod +x /start.sh /healthcheck.sh
+RUN chmod +x /start.sh /clone_repo.sh /healthcheck.sh
 
 WORKDIR /mnt/workspace
 
