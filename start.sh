@@ -26,9 +26,10 @@ banner "GPU Development Container Initialization"
 # Required environment variables
 # ------------------------------------------------------------
 CONTAINER_NAME="${CONTAINER_NAME:-workspace}"
+TUNNEL_NAME="${TUNNEL_NAME:-gpu-workspace}"
 
-[ -z "$TUNNEL_ID" ]      && error "TUNNEL_ID must be set"
-[ -z "$ACCESS_TOKEN" ]   && error "ACCESS_TOKEN must be set"
+[ -z "$TUNNEL_ID" ] && error "TUNNEL_ID must be set"
+[ -z "$ACCESS_TOKEN" ] && error "ACCESS_TOKEN must be set"
 
 # ------------------------------------------------------------
 # GPU Detection
@@ -103,54 +104,30 @@ else
 fi
 
 # ------------------------------------------------------------
-# Start Dev Tunnel
+# Start VS Code Tunnel
 # ------------------------------------------------------------
 echo ""
-echo "🔗 Starting Dev Tunnel..."
+echo "🔗 Starting VS Code Tunnel..."
 
-# Verify devtunnel is available and correct version
-if ! command -v devtunnel &> /dev/null; then
-    error "devtunnel command not found in PATH"
-fi
+info "Tunnel ID: $TUNNEL_ID"
 
-echo "DevTunnel location: $(which devtunnel)"
-devtunnel --version || error "Failed to get devtunnel version"
-
-# Verify --access-token is supported
-if ! devtunnel host --help | grep -q "access-token"; then
-    error "This devtunnel version doesn't support --access-token. Please update devtunnel."
-fi
-
-echo "Using tunnel ID: $TUNNEL_ID"
-
-# Ensure port 8000 exists (idempotent)
-devtunnel port create "$TUNNEL_ID" \
-    -p 8000 \
-    --protocol https \
-    --access-token "$ACCESS_TOKEN" \
-    | tee /tmp/devtunnel_port.log || true
-
-# Host tunnel
-devtunnel host "$TUNNEL_ID" \
-    --access-token "$ACCESS_TOKEN" \
-    > /tmp/devtunnel.log 2>&1 &
+# Start VS Code tunnel with existing tunnel credentials
+code tunnel --accept-server-license-terms \
+    --name "$TUNNEL_NAME" \
+    --tunnel-id "$TUNNEL_ID" \
+    --host-token "$ACCESS_TOKEN" \
+    > /tmp/vscode_tunnel.log 2>&1 &
 TUNNEL_PID=$!
 
-# Wait for startup
-sleep 3
+sleep 5
 
 if ! ps -p "$TUNNEL_PID" >/dev/null; then
-    error "DevTunnel failed to start! Log:"
-    cat /tmp/devtunnel.log
+    error "VS Code Tunnel failed to start! Log:"
+    cat /tmp/vscode_tunnel.log
 fi
 
-info "Dev Tunnel started (PID: $TUNNEL_PID)"
-
-# Optional: try to show full details, but do NOT fail if unauthorized
-TUNNEL_URL=$(devtunnel show "$TUNNEL_ID" --json 2>/dev/null \
-    | grep -o '"uri":"[^"]*' | cut -d'"' -f4 || true)
-
-[ -n "$TUNNEL_URL" ] && info "Connect via: $TUNNEL_URL"
+info "VS Code Tunnel started (PID: $TUNNEL_PID)"
+info "Connect via VS Code Remote Explorer -> Tunnels -> $TUNNEL_ID"
 
 # ------------------------------------------------------------
 # Ready banner
@@ -160,9 +137,8 @@ banner "Container Ready!"
 
 echo "GPU: ${GPU_NAME:-N/A}"
 echo "Storage: /mnt/workspace"
-echo "Dev Tunnel: $TUNNEL_ID"
-echo "Logs: /tmp/devtunnel.log"
-echo "GPU Stats: /tmp/gpu_stats.json"
+echo "VS Code Tunnel: $TUNNEL_ID"
+echo "Logs: /tmp/vscode_tunnel.log"
 
 # ------------------------------------------------------------
 # Graceful shutdown
@@ -170,7 +146,6 @@ echo "GPU Stats: /tmp/gpu_stats.json"
 trap '
     echo "Shutting down..."
     kill "$TUNNEL_PID" 2>/dev/null || true
-    [ -n "$MONITOR_PID" ] && kill "$MONITOR_PID" 2>/dev/null || true
     exit 0
 ' EXIT TERM INT
 
@@ -180,8 +155,8 @@ trap '
 while true; do
     if ! ps -p "$TUNNEL_PID" > /dev/null; then
         echo ""
-        error "Dev Tunnel process died! Last 50 log lines:"
-        tail -n 50 /tmp/devtunnel.log
+        error "VS Code Tunnel process died! Last 50 log lines:"
+        tail -n 50 /tmp/vscode_tunnel.log
     fi
     sleep 5
 done

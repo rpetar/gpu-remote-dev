@@ -9,16 +9,9 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     python3 \
     python3-pip \
+    wget \
+    git \
     && rm -rf /var/lib/apt/lists/*
-
-# Azure DevTunnel CLI
-RUN curl -sL https://aka.ms/DevTunnelCliInstall | sed 's/sudo //g' | bash \
-    && DEV_BIN=$(find /root/bin /usr -type f -name devtunnel 2>/dev/null | head -n 1) \
-    && DEV_DIR=$(dirname "$DEV_BIN") \
-    && echo "export PATH=\"$DEV_DIR:\$PATH\"" >> /root/.bashrc \
-    && echo "export PATH=\"$DEV_DIR:\$PATH\"" >> /etc/profile
-
-RUN devtunnel --version
 
 # BlobFuse2
 RUN curl -LO https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb \
@@ -30,6 +23,13 @@ RUN curl -LO https://packages.microsoft.com/config/ubuntu/22.04/packages-microso
 
 # GPU monitoring
 RUN pip3 install --no-cache-dir gpustat nvidia-ml-py3 psutil
+
+# VS Code Server CLI
+RUN curl -Lk 'https://code.visualstudio.com/sha/download?build=stable&os=cli-alpine-x64' \
+    --output /tmp/vscode_cli.tar.gz \
+    && tar -xf /tmp/vscode_cli.tar.gz -C /usr/local/bin \
+    && rm /tmp/vscode_cli.tar.gz \
+    && chmod +x /usr/local/bin/code
 
 RUN mkdir -p /mnt/workspace /etc/blobfuse2 /tmp/blobfuse2_cache \
     && chmod 755 /mnt/workspace /tmp/blobfuse2_cache
