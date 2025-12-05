@@ -108,6 +108,19 @@ fi
 echo ""
 echo "🔗 Starting Dev Tunnel..."
 
+# Verify devtunnel is available and correct version
+if ! command -v devtunnel &> /dev/null; then
+    error "devtunnel command not found in PATH"
+fi
+
+echo "DevTunnel location: $(which devtunnel)"
+devtunnel --version || error "Failed to get devtunnel version"
+
+# Verify --access-token is supported
+if ! devtunnel host --help | grep -q "access-token"; then
+    error "This devtunnel version doesn't support --access-token. Please update devtunnel."
+fi
+
 echo "Using tunnel ID: $TUNNEL_ID"
 
 # Ensure port 8000 exists (idempotent)
