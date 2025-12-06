@@ -36,7 +36,7 @@ fi
 REPO_NAME=$(echo "$GITHUB_REPO_URL" | sed 's|.*/\([^/]*\)\.git$|\1|' | sed 's|.*/\([^/]*\)$|\1|')
 
 # Optional variables
-PROJECT_DIR="${PROJECT_DIR:-/mnt/workspace/${REPO_NAME}}"
+PROJECT_DIR="${PROJECT_DIR:-/workspace/${REPO_NAME}}"
 
 banner "GitHub Repository Setup"
 

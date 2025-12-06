@@ -4,7 +4,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-lc"]
 
 RUN apt-get update && apt-get install -y \
-    fuse \
     curl \
     ca-certificates \
     python3 \
@@ -13,13 +12,8 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# BlobFuse2
-RUN curl -LO https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb \
-    && dpkg -i packages-microsoft-prod.deb \
-    && rm packages-microsoft-prod.deb \
-    && apt-get update \
-    && apt-get install -y blobfuse2 \
-    && rm -rf /var/lib/apt/lists/*
+# Python package manager (uv)
+RUN curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/local/bin sh
 
 # GPU monitoring
 RUN pip3 install --no-cache-dir gpustat nvidia-ml-py3 psutil
@@ -31,16 +25,14 @@ RUN curl -Lk 'https://code.visualstudio.com/sha/download?build=stable&os=cli-alp
     && rm /tmp/vscode_cli.tar.gz \
     && chmod +x /usr/local/bin/code
 
-RUN mkdir -p /mnt/workspace /etc/blobfuse2 /tmp/blobfuse2_cache \
-    && chmod 755 /mnt/workspace /tmp/blobfuse2_cache
+RUN mkdir -p /workspace && chmod 755 /workspace
 
-COPY blobfuse2_config.yaml /etc/blobfuse2/config.yaml
 COPY start.sh /start.sh
 COPY clone_repo.sh /clone_repo.sh
 COPY healthcheck.sh /healthcheck.sh
 RUN chmod +x /start.sh /clone_repo.sh /healthcheck.sh
 
-WORKDIR /mnt/workspace
+WORKDIR /workspace
 
 HEALTHCHECK --interval=30s --timeout=10s \
     CMD ["/healthcheck.sh"]

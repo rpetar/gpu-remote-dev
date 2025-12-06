@@ -25,7 +25,6 @@ banner "GPU Development Container Initialization"
 # ------------------------------------------------------------
 # Required environment variables
 # ------------------------------------------------------------
-CONTAINER_NAME="${CONTAINER_NAME:-workspace}"
 TUNNEL_NAME="${TUNNEL_NAME:-gpu-workspace}"
 
 [ -z "$TUNNEL_ID" ] && error "TUNNEL_ID must be set"
@@ -59,49 +58,6 @@ else
 fi
 
 mkdir -p /tmp/cuda_cache
-
-# ------------------------------------------------------------
-# Mount Azure Blob Storage (BlobFuse2)
-# ------------------------------------------------------------
-echo ""
-echo "💾 Mounting Azure Blob Storage..."
-
-if [ ! -e /dev/fuse ]; then
-    warn "FUSE not available - BlobFuse2 disabled"
-    echo "Using Azure SDK instead (credentials still provided)"
-    mkdir -p /mnt/workspace
-    MOUNT_AVAILABLE=false
-else
-    [ -z "$ACCOUNT_NAME" ] && error "ACCOUNT_NAME must be set when FUSE is available"
-    [ -z "$ACCOUNT_KEY" ]  && error "ACCOUNT_KEY must be set when FUSE is available"
-
-    echo "Generating BlobFuse2 config..."
-    sed \
-        -e "s|\${ACCOUNT_NAME}|${ACCOUNT_NAME}|g" \
-        -e "s|\${ACCOUNT_KEY}|${ACCOUNT_KEY}|g" \
-        -e "s|\${CONTAINER_NAME}|${CONTAINER_NAME}|g" \
-        /etc/blobfuse2/config.yaml \
-        > /tmp/blobfuse2_runtime.yaml
-
-    echo "Mounting BlobFuse2..."
-    if blobfuse2 mount /mnt/workspace \
-        --config-file=/tmp/blobfuse2_runtime.yaml -o allow_other \
-        2>&1 | tee /tmp/blobfuse2_debug.log; then
-        
-        info "Blob Storage mounted"
-        MOUNT_AVAILABLE=true
-    else
-        warn "BlobFuse2 mount failed"
-        MOUNT_AVAILABLE=false
-    fi
-fi
-
-if mountpoint -q /mnt/workspace; then
-    info "Mount point OK: /mnt/workspace"
-    ls -la /mnt/workspace | head -n 10
-else
-    warn "/mnt/workspace is not a mount point"
-fi
 
 # ------------------------------------------------------------
 # Clone GitHub Repository
@@ -142,7 +98,7 @@ echo ""
 banner "Container Ready!"
 
 echo "GPU: ${GPU_NAME:-N/A}"
-echo "Storage: /mnt/workspace"
+echo "Storage: /workspace"
 echo "VS Code Tunnel: $TUNNEL_ID"
 echo "Logs: /tmp/vscode_tunnel.log"
 
