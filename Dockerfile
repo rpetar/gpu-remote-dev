@@ -10,6 +10,10 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     wget \
     git \
+    ffmpeg \
+    libgl1 \
+    libglx-mesa0 \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Python package manager (uv)

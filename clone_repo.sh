@@ -80,6 +80,15 @@ if git clone "$AUTH_URL" "$PROJECT_DIR"; then
     echo "  Branch: $(git rev-parse --abbrev-ref HEAD)"
     echo "  Commit: $(git rev-parse --short HEAD)"
     echo "  Author: $(git log -1 --pretty=format:'%an <%ae>')"
+    
+    # Try to sync dependencies with uv if available
+    echo ""
+    echo "🔄 Attempting to sync dependencies with uv..."
+    if uv sync --frozen 2>/dev/null; then
+        info "Dependencies synced successfully with uv"
+    else
+        warn "uv sync failed or not configured - continuing anyway"
+    fi
 else
     error "Failed to clone repository. Check GITHUB_REPO_URL and GITHUB_TOKEN."
 fi
