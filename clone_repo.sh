@@ -81,13 +81,29 @@ if git clone "$AUTH_URL" "$PROJECT_DIR"; then
     echo "  Commit: $(git rev-parse --short HEAD)"
     echo "  Author: $(git log -1 --pretty=format:'%an <%ae>')"
     
-    # Try to sync dependencies with uv if available
+    # Try to run setup.sh if available
     echo ""
-    echo "🔄 Attempting to sync dependencies with uv..."
-    if uv sync --frozen 2>/dev/null; then
-        info "Dependencies synced successfully with uv"
+    if [ -f "setup.sh" ]; then
+        echo "🔄 Attempting to run setup.sh..."
+        if bash setup.sh 2>/dev/null; then
+            info "Setup completed successfully with setup.sh"
+        else
+            warn "setup.sh failed - attempting alternative setup method..."
+            # Try python setup.py if setup.sh failed
+            if [ -f "setup.py" ] && python setup.py 2>/dev/null; then
+                info "Setup completed successfully with python setup.py"
+            else
+                warn "setup.py failed or not available - continuing anyway"
+            fi
+        fi
     else
-        warn "uv sync failed or not configured - continuing anyway"
+        echo "🔄 setup.sh not found - attempting python setup.py..."
+        # Try python setup.py if setup.sh doesn't exist
+        if [ -f "setup.py" ] && python setup.py 2>/dev/null; then
+            info "Setup completed successfully with python setup.py"
+        else
+            warn "setup.py failed or not available - continuing anyway"
+        fi
     fi
 else
     error "Failed to clone repository. Check GITHUB_REPO_URL and GITHUB_TOKEN."
