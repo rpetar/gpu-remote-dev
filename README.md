@@ -18,7 +18,7 @@ Common:
 - `CONNECT_MODE`: `ssh`, `tunnel`, or `auto` (default). In `auto`, SSH is used if `PUBLIC_SSH_KEY` is set, otherwise tunnel.
 
 SSH mode:
-- `PUBLIC_SSH_KEY` (required): Your public key line (e.g., output of `cat ~/.ssh/id_ed25519.pub`).
+- `PUBLIC_KEY` or `SSH_PUBLIC_KEY` (required): Your public key line (e.g., output of `cat ~/.ssh/id_ed25519.pub`). Vast.ai can inject your account key into `PUBLIC_KEY`/`SSH_PUBLIC_KEY` automatically.
 - `SSH_USER` (optional, default `root`): User account to authorize/create.
 - `SSH_PORT` (optional, default `2222`): SSH daemon port inside the container.
 
@@ -41,7 +41,7 @@ Repository cloning:
    docker run --rm -it \
      --gpus all \
      -e CONNECT_MODE=ssh \
-     -e PUBLIC_SSH_KEY="ssh-ed25519 AAAA... your-comment" \
+     -e PUBLIC_KEY="ssh-ed25519 AAAA... your-comment" \
      -e SSH_PORT=2222 \
      -p 2222:2222 \
      gpu-remote-dev
@@ -71,14 +71,15 @@ Repository cloning:
 4. Connect from VS Code: Remote Explorer → Tunnels → select your tunnel ID.
 
 ## Using on Vast.ai (SSH recommended)
-1. Launch with environment variables: `CONNECT_MODE=ssh`, `PUBLIC_SSH_KEY="ssh-ed25519 ..."`, and optionally `SSH_USER`, `SSH_PORT`.
-2. Expose the container SSH port: set container port to your `SSH_PORT` (default 2222) and map to a public host port in the Vast UI.
-3. Once running, connect from your machine: `ssh -p <host_port> <SSH_USER>@<vast_public_ip>`.
-4. VS Code Remote-SSH config example:
+1. Add your SSH public key to your Vast.ai account (it will be injected into `PUBLIC_KEY`/`SSH_PUBLIC_KEY`). Launch with envs: `CONNECT_MODE=ssh`, optionally `SSH_USER`, `SSH_PORT` (default 2222). You can also explicitly set `PUBLIC_KEY="ssh-ed25519 ..."` if needed.
+2. In the template, set the internal TCP port to `SSH_PORT` (default 2222). Vast assigns an external host port automatically.
+3. After the instance starts, click the IP in the UI to see the port mappings. Use the external host port mapped to container 2222.
+4. Connect from your machine: `ssh -p <external_host_port> <SSH_USER>@<vast_public_ip>`.
+5. VS Code Remote-SSH config example:
    ```
    Host vast-gpu
      HostName <vast_public_ip>
-     Port <host_port>
+     Port <external_host_port>   # the host port mapped to container 2222
      User <SSH_USER>
      IdentityFile ~/.ssh/id_ed25519
    ```

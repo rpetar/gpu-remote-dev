@@ -29,6 +29,7 @@ CONNECT_MODE="${CONNECT_MODE:-auto}"  # ssh | tunnel | auto
 SSH_USER="${SSH_USER:-root}"
 SSH_PORT="${SSH_PORT:-2222}"
 TUNNEL_NAME="${TUNNEL_NAME:-gpu-workspace}"
+PUBLIC_KEY_RESOLVED="${PUBLIC_KEY:-${SSH_PUBLIC_KEY:-${PUBLIC_SSH_KEY:-}}}"
 
 PROC_PID=""
 PROC_NAME=""
@@ -117,7 +118,7 @@ start_vscode_tunnel() {
 # ------------------------------------------------------------
 
 start_sshd() {
-    [ -z "$PUBLIC_SSH_KEY" ] && error "PUBLIC_SSH_KEY must be set (your public key line)"
+    [ -z "$PUBLIC_KEY_RESOLVED" ] && error "PUBLIC_KEY (or SSH_PUBLIC_KEY) must be set (your public key line)"
 
     echo ""
     echo "🔐 Configuring SSH server..."
@@ -137,7 +138,7 @@ start_sshd() {
 
     mkdir -p "$USER_HOME/.ssh"
     chmod 700 "$USER_HOME/.ssh"
-    printf '%s\n' "$PUBLIC_SSH_KEY" > "$USER_HOME/.ssh/authorized_keys"
+    printf '%s\n' "$PUBLIC_KEY_RESOLVED" > "$USER_HOME/.ssh/authorized_keys"
     chmod 600 "$USER_HOME/.ssh/authorized_keys"
     chown -R "$SSH_USER":"$SSH_USER" "$USER_HOME/.ssh"
 
@@ -186,7 +187,7 @@ resolve_mode() {
             echo "tunnel"
             ;;
         auto)
-            if [ -n "$PUBLIC_SSH_KEY" ]; then
+            if [ -n "$PUBLIC_KEY_RESOLVED" ]; then
                 echo "ssh"
             else
                 echo "tunnel"
@@ -226,7 +227,7 @@ banner "Container Ready!"
 echo "GPU: ${GPU_NAME:-N/A}"
 echo "Storage: /workspace"
 if [ "$MODE" = "ssh" ]; then
-    echo "SSH: $SSH_USER on port $SSH_PORT (key from PUBLIC_SSH_KEY)"
+    echo "SSH: $SSH_USER on port $SSH_PORT (key from PUBLIC_KEY/SSH_PUBLIC_KEY)"
 else
     echo "VS Code Tunnel: $TUNNEL_ID"
 fi
