@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
     libglx-mesa0 \
     libglib2.0-0 \
     jq \
+    openssh-server \
     && rm -rf /var/lib/apt/lists/*
 
 # Python package manager (uv)
