@@ -123,7 +123,9 @@ install_vscode_extensions() {
     echo "Installing VS Code recommended extensions..."
     for ext in "${exts[@]}"; do
         echo "    -> $ext"
-        code --install-extension "$ext"
+        if ! code --install-extension "$ext"; then
+            warn "Failed to install $ext (is VS Code CLI installed and accessible as 'code'?)"
+        fi
     done
 }
 
