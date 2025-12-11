@@ -70,8 +70,7 @@ run_setup_scripts() {
 }
 
 install_vscode_extensions() {
-    local repo_root
-    repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local repo_root="${PROJECT_DIR:-$(pwd)}"
     local ext_file="$repo_root/.vscode/extensions.json"
 
     if ! command -v code >/dev/null 2>&1; then
