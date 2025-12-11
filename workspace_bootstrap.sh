@@ -28,6 +28,27 @@ info() {
         echo "✓ $1"
 }
 
+configure_git_identity() {
+        # Skip if already configured
+        local existing_name existing_email
+        existing_name="$(git config --global user.name 2>/dev/null || true)"
+        existing_email="$(git config --global user.email 2>/dev/null || true)"
+        if [ -n "$existing_name" ] && [ -n "$existing_email" ]; then
+                info "Global git identity already set: $existing_name <$existing_email>"
+                return
+        fi
+
+        # Only set when both env vars are provided
+        if [ -z "$GIT_USER_NAME" ] || [ -z "$GIT_USER_EMAIL" ]; then
+                warn "Global git identity missing. Provide GIT_USER_NAME and GIT_USER_EMAIL to set automatically."
+                return
+        fi
+
+        git config --global user.name "$GIT_USER_NAME"
+        git config --global user.email "$GIT_USER_EMAIL"
+        info "Configured global git identity: $GIT_USER_NAME <$GIT_USER_EMAIL>"
+}
+
 # Run setup scripts with fallback logic
 run_setup_scripts() {
         local setup_success=false
@@ -181,6 +202,9 @@ info "Repository cloned successfully"
 # Reset remote to clean URL (no username)
 cd "$PROJECT_DIR" || error "Failed to enter $PROJECT_DIR"
 git remote set-url origin "$REPO_URL_HTTPS"
+
+# Configure git identity if requested
+configure_git_identity
 
 # Display repo info
 echo ""

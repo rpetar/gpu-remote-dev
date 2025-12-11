@@ -33,6 +33,9 @@ Repository cloning:
 - `PROJECT_DIR` (optional): Target path (default `/workspace/<repo-name>`).
 - `CLONE_ON_START` (optional, default `true`): Set to `false` to skip cloning.
 
+Git identity (for committing over SSH):
+- `GIT_USER_NAME` and `GIT_USER_EMAIL` (optional): If both are set, the bootstrap script sets `git config --global user.name` and `user.email` automatically. If already configured globally, they are left unchanged.
+
 ## Local Testing (SSH)
 1. Get your public key: `cat ~/.ssh/id_ed25519.pub`.
 2. Build: `docker build -t gpu-remote-dev .`
