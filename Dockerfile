@@ -34,9 +34,9 @@ RUN curl -Lk 'https://code.visualstudio.com/sha/download?build=stable&os=cli-alp
 RUN mkdir -p /workspace && chmod 755 /workspace
 
 COPY start.sh /start.sh
-COPY clone_repo.sh /clone_repo.sh
+COPY workspace_bootstrap.sh /workspace_bootstrap.sh
 COPY healthcheck.sh /healthcheck.sh
-RUN chmod +x /start.sh /clone_repo.sh /healthcheck.sh
+RUN chmod +x /start.sh /workspace_bootstrap.sh /healthcheck.sh
 
 WORKDIR /workspace
 
