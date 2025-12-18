@@ -98,6 +98,10 @@ install_vscode_extensions() {
         echo "VS Code CLI (code) not found; skipping extension install"
         return
     fi
+    if ! code --version >/dev/null 2>&1; then
+        warn "VS Code CLI is present but VS Code itself is not installed or not linked; skipping extension install"
+        return
+    fi
     if [ ! -f "$ext_file" ]; then
         echo "No $ext_file found; skipping extension install"
         return
